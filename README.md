@@ -1,35 +1,112 @@
 Graphreduce
 ==============
 
-## large scale network segmentation
+## Large scale network reduction
 
-Graphreduce finds community structure in large internet sized networks.
-
-## built on the backs of giants
+Graphreduce finds hierarchical community structure (compression patterns) 
+in large complex networks.
 
 The code here attempts to be pretty lightweight and straightforward, the heavy 
 lifting is done by:
 
- - [graphlab](http://graphlab.com)
+ - [GraphLab](http://graphlab.com)
 
- - [the map equation](http://www.mapequation.org/code.html)
+ - [The map equation](http://www.mapequation.org/code.html)
 
-## a few details
+## Some details
 
 Graphreduce was built to identify communities of like minded-people in large, 
-internet-scale social networks such as twitter, facebook, and youtube. In practice, 
-it can be used to detect community structure in any directed weighted network.
+internet-scale social networks (such as twitter, facebook, and youtube), and 
+to identify the complex relations in and between these communities. It can be 
+used to find hierarchical structure in any directed weighted graph or network.
 
-This library is the engine behind [smarttypes.org](http://www.smarttypes.org/), 
-a free web service aimed at identifying niche communities, and highlighting what 
-they talk about and find interesting over time.
-
-We owe a lot to [graphlab](http://graphlab.com/learn/), a free data analysis 
+We owe a lot to [GraphLab](http://graphlab.com/learn/), a free data analysis 
 framework aimed at enabling web scale machine learning and complex network analysis.
 
-We're also greatly indebted to the work done by [Martin Rosvall](http://www.tp.umu.se/~rosvall/) 
+We're also indebted to the work done by [Martin Rosvall](http://www.tp.umu.se/~rosvall/) 
 and map equation team. The map equation is an information theory based objective 
-function used to quantify community detection. 
+function used to quantify network pattern detection. Dare we not mention the father 
+of information theory [Claude Shannon](http://en.wikipedia.org/wiki/Claude_Shannon).
 
-Dare we not forget the father of information theory [Claude Shannon](http://en.wikipedia.org/wiki/Claude_Shannon).
+## Using Graphreduce
+
+Clone the git repro:
+
+```
+$ git clone git@github.com:timmytw/graphreduce.git
+```
+
+Install dependencies:
+
+```
+$ pip install -r graphreduce/requirements.txt
+```
+
+Make sure everything is working:
+
+```
+$ python graphreduce/test.py
+```
+
+Run on your own graph:
+
+```
+$ python graphreduce/run.py edge.csv [vertex.csv]
+```
+
+### Input
+
+edge.csv has two required columns and one optional column. The first column 
+is the id of the source vertex, the second column is the id of the destination vertex, 
+the third optional column is the the edge weight.
+
+edge.csv:
+ - src_id
+ - dest_id
+ - [edge_weight]
+
+vertex.csv is optional and used to seed the detection process w/ prior
+information. This is useful in cases where your system has existing knowledge of the 
+community structure, maybe from a previous graphreduce run or from some other 
+information source. vertex.csv is a csv w/ two required columns.
+
+vertex.csv:
+ - vertex_id
+ - community_id
+
+### Output
+
+graphreduce/run.py logs its progress to stout, and outputs four files to
+to graphreduce/results/YYYYMMDDhhmmss:
+
+graphreduce/results/YYYYMMDDhhmmss/vertex.csv
+ - vertex_id
+ - community_id
+
+graphreduce/results/YYYYMMDDhhmmss/community.csv
+ - community_id
+ - partition_id
+
+graphreduce/results/YYYYMMDDhhmmss/community_edge.csv
+ - src_community_id
+ - dest_community_id
+ - edge_weight
+
+graphreduce/results/YYYYMMDDhhmmss/process.log:
+ - start_time
+ - finish_time
+ - number_of_vertices
+ - number_of_edges
+ - description_length
+ - second_level_description_length
+ - number_of_communities
+ - number_of_partitions
+
+description_lengh is a score denoting how well the community detection process did.
+
+## See it in action
+
+Graphreduce is the engine behind [SmartTypes.org](http://www.smarttypes.org/), 
+a free web service that identifies niche community experts, and highlights 
+what they talk about and find interesting over time.
 
