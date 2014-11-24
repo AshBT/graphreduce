@@ -6,19 +6,18 @@ Graphreduce
 Graphreduce finds hierarchical community structure (compression patterns) 
 in large complex networks.
 
-The code here attempts to be pretty lightweight and straightforward, the heavy 
+The code attempts to be pretty lightweight and straightforward, the heavy 
 lifting is done by:
 
  - [GraphLab](http://graphlab.com)
-
  - [The map equation](http://www.mapequation.org/code.html)
 
 ## Some details
 
-Graphreduce was built to identify communities of like minded-people in large, 
-internet-scale social networks (such as twitter, facebook, and youtube), and 
-to identify the complex relations in and between these communities. It can be 
-used to find hierarchical structure in any directed weighted graph or network.
+Graphreduce was built to identify expert communities in large, 
+internet-scale social networks (such as twitter, facebook and youtube). 
+It can be used to find hierarchical structure in any directed weighted 
+graph or network.
 
 We owe a lot to [GraphLab](http://graphlab.com/learn/), a free data analysis 
 framework aimed at enabling web scale machine learning and complex network analysis.
@@ -68,7 +67,7 @@ edge.csv:
 vertex.csv is optional and used to seed the detection process w/ prior
 information. This is useful in cases where your system has existing knowledge of the 
 community structure, maybe from a previous graphreduce run or from some other 
-information source. vertex.csv is a csv w/ two required columns.
+information source. vertex.csv has two required columns.
 
 vertex.csv:
  - vertex_id
@@ -76,8 +75,8 @@ vertex.csv:
 
 ### Output
 
-graphreduce/run.py logs its progress to stout, and outputs four files to
-to graphreduce/results/YYYYMMDDhhmmss:
+graphreduce/run.py logs its progress to stout, and outputs four files to 
+graphreduce/results/YYYYMMDDhhmmss:
 
 graphreduce/results/YYYYMMDDhhmmss/vertex.csv
  - vertex_id
@@ -102,11 +101,11 @@ graphreduce/results/YYYYMMDDhhmmss/process.log:
  - number_of_communities
  - number_of_partitions
 
-description_lengh is a score denoting how well the community detection process did.
+description_lengh denotes how well our community detection process did.
 
 ## See it in action
 
 Graphreduce is the engine behind [SmartTypes.org](http://www.smarttypes.org/), 
-a free web service that identifies niche community experts, and highlights 
+a free web service identifying niche community experts, and highlighting 
 what they talk about and find interesting over time.
 
