@@ -1,13 +1,18 @@
 import graphlab
 from graph import Graph
+import sys
 
-vertices = get_vertices()
-edges = get_edges()
+vertices = graphlab.get_vertices(sys.args[1])
+edges = graphlab.get_edges(sys.args[2])
 g = Graph(vertices, edges)
-g.home_for_the_homeless()
 
-for i in range(2):
-    description_length = base_g.partition_and_update_communities()
-    print description_length
+progress_threshold = 1000 #this will take some tweaking
+progress = progress_threshold + 1
+last_mdl = 1e20
+while progress > progress_threshold:
+    mdl = g.partition_and_update_communities()
+    print mdl
+    progress = last_mdl - mdl
+    last_mdl = mdl
 
 g.save()

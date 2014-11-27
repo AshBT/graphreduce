@@ -3,23 +3,24 @@ import graphlab as gl
 
 class Graph(object):
 
-    def __init__(self, vertices, edges):
+    def __init__(self, vertices, edges, parent=None):
+        self.parent = parent
         self.vertices = vertices
         self.edges = edges
-        self.g = gl.SGraph(vertices=self.vertices, edges=self.edges, 
+        self.sgraph = gl.SGraph(vertices=self.vertices, edges=self.edges, 
             vid_field='v_id', src_field='src_id', dst_field='dst_id')
-        self.community_vertices = None
-        self.community_edges = None
-        self.community_g = None
 
-    def home_for_the_homeless(self):
+    def homes_for_the_homeless(self):
         """
-        Assign a random community to the nodes w/out one
+        Assign a community to nodes that need one
         """
+
+    def pagerank_em(self):
+        """"""
 
     def set_community_vertices(self):
         """
-        use self.g to set
+        groupby self.sgraph['community_id']
         """
         self.community_vertices = gl.SFrame()
 
@@ -32,24 +33,28 @@ class Graph(object):
         """
         self.community_edges = gl.SFrame()
 
-    def set_community_g(self):
-        self.community_g = Graph(self.community_vertices, self.community_edges)
+    def get_community_g(self):
+        return Graph(self.community_vertices, self.community_edges, parent=self)
 
     def find_communities(self):
         "return list of Graphs"
+        if self.parent:
+            #pull subgraph out of self.parent.g
+            #partition_community_ids = self.parent.g['v_id']
+            #partition_g = self.sgraph[self.sgraph['community_id'] in _partition_community_ids]
 
     def partition_and_update_communities(self):
+        self.homes_for_the_homeless()
         self.set_community_vertices()
         self.set_community_edges()
-        self.set_community_g()
-
+        community_g = self.get_community_g()
         total_mdl = 0
-        for partition_g, partition_mdl in self.community_g.find_communities():
-            #pull subgraph out of self.g
-            partition_community_ids = partition_g.g['v_id']
-            partition_g = self.g[self.g['community_id'] in _partition_community_ids]
-            for community, community_mdl in partition_g.find_communities():
-                total_mdl += _community_mdl
-                "update self.g.vertices, set community_id"
-                "update self.g.community_vertices, set new community_ids and partition_ids"
+        for partition_g, partition_mdl in community_g.find_communities():
+            for partition_community_g, partition_community_mdl in partition_g.find_communities():
+                total_mdl += partition_community_mdl
+                "update self.sgraph.vertices, set community_id"
+                "update self.sgraph.community_vertices, set new community_ids and partition_ids"
         return total_mdl
+
+    def save(self):
+        """"""
