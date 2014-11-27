@@ -2,3 +2,5 @@
 *.sublime-project
 *.pyc
 test_data/*
+relaxmap/input/*
+relaxmap/output/*
