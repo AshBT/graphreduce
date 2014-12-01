@@ -1,0 +1,12 @@
+GraphLab-Create==1.1
+argparse==1.2.1
+backports.ssl-match-hostname==3.4.0.2
+boto==2.33.0
+decorator==3.4.0
+ipython==2.3.1
+librato-metrics==0.4.9
+mixpanel-py==3.1.1
+prettytable==0.7.2
+requests==2.3.0
+tornado==3.2.1
+wsgiref==0.1.2
