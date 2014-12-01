@@ -88,8 +88,9 @@ class GraphWrapper(object):
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
         self.homes_for_the_homeless()
 
-        if self.parent:
-            self.parent.g = gl.SGraph(edges=self.get_community_edges(), 
+        if self.parent: 
+            self.parent.g = gl.SGraph(vertices=self.parent.g.get_vertices(), 
+                edges=self.get_community_edges(), vid_field='__id', 
                 src_field='__src_id', dst_field='__dst_id')
         
         #pull sgraph partitions out of child
