@@ -29,9 +29,6 @@ class GraphWrapper(object):
         self.g.vertices['community_id'] = self.g.vertices['community_id'].apply(lambda x: 
             random.choice(unique) if not x else x, skip_undefined=False)
 
-    def do_pagerank(self):
-        """"""
-
     def get_community_vertices(self):
         unique = list(self.g.vertices['community_id'].unique())
         num_comms = len(unique) / self.AVG_COMM_SIZE if len(unique) > self.AVG_COMM_SIZE else 1
@@ -41,7 +38,7 @@ class GraphWrapper(object):
         return gl.SFrame({'__id': unique, 'community_id':comms})
 
     def get_community_edges(self):
-        #TODO: suspect this can be done more efficiently w/ triple_apply
+        #TODO: I suspect this can be done more efficiently w/ triple_apply
         edges = self.g.edges.join(self.g.vertices, {'__dst_id':'__id'})
         edges.rename({'community_id':'dst_community_id'})
         edges = edges.join(self.g.vertices, {'__src_id':'__id'})
@@ -67,12 +64,12 @@ class GraphWrapper(object):
         if not partitions:
             partitions = [self.g]
 
-        print 'starting community detection, %s partition(s)' % len(partitions)
+        print '**starting community detection, %s partition(s)' % len(partitions)
 
         mdl = 0
         vertices = None
         for partition in partitions:
-            print 'use partition vertex count: %s' % partition.vertices.num_rows()
+            print '**use partition vertex count: %s' % partition.vertices.num_rows()
             _vertices, _mdl = relaxmap.find_communities(partition)
             mdl += _mdl
             if not vertices:
@@ -87,19 +84,18 @@ class GraphWrapper(object):
         self.g = gl.SGraph(vertices=vertices, edges=self.g.get_edges(), 
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
         self.homes_for_the_homeless()
-
-        if self.parent: 
-            self.parent.g = gl.SGraph(vertices=self.parent.g.get_vertices(), 
-                edges=self.get_community_edges(), vid_field='__id', 
-                src_field='__src_id', dst_field='__dst_id')
         
+        if self.parent: 
+            self.parent.g = gl.SGraph(edges=self.get_community_edges(), 
+                src_field='__src_id', dst_field='__dst_id')
+
         #pull sgraph partitions out of child
         if self.child:
             partitions = []
             grouped_vertices = vertices.groupby('community_id', {'__ids': gl.aggregate.CONCAT('__id')})
             for row in grouped_vertices:
                 vertices = gl.SFrame({'__id':row['__ids']})
-                print 'mk partition vertex count: %s' % vertices.num_rows()
+                print '**mk partition vertex count: %s' % vertices.num_rows()
                 p_vertices = self.child.g.vertices.join(vertices, {'community_id':'__id'})
                 if not p_vertices.num_rows():
                     continue
