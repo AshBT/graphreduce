@@ -2,5 +2,7 @@
 *.sublime-project
 *.pyc
 test_data/*
+input/*
+output/*
 relaxmap/input/*
 relaxmap/output/*

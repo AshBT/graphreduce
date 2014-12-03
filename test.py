@@ -14,6 +14,5 @@ for i in range(hierarchy_levels - 1):
 mdl1 = gw.find_communities()
 mdl2 = gw.find_communities()
 mdl3 = gw.find_communities()
-mdl4 = gw.find_communities()
-
-print mdl1, mdl2, mdl3, mdl4
+print mdl1, mdl2, mdl3
+gw.save('./output/vertex.csv', './output/edge.csv')

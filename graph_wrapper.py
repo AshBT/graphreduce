@@ -55,6 +55,8 @@ class GraphWrapper(object):
         return grouped_edges
 
     def get_community_gw(self):
+        if self.child:
+            raise Exception('Graphreduce only supports one level hierarchies at this time.')
         self.homes_for_the_homeless()
         gw = GraphWrapper(self.get_community_vertices(), self.get_community_edges(), child=self)
         self.parent = gw
@@ -112,10 +114,12 @@ class GraphWrapper(object):
             return self.child.find_communities(partitions=partitions)
         return mdl
 
-    def save(self):
-        """
-        Call save on all children as well
-        """
+    def save(self, community_file_path, community_edge_file_path):
+        if self.child:
+            self = self.child
+        self.g.vertices.save(community_file_path, format='csv')
+        _g = gl.SGraph(edges=self.get_community_edges())
+        _g.edges.save(community_edge_file_path, format='csv')
 
     @classmethod
     def load_vertices(cls, vertex_csv, header=False):
