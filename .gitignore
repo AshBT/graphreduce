@@ -1,7 +1,8 @@
 *.sublime-workspace
 *.sublime-project
 *.pyc
-test_data/*
+test/edge.csv
+test/vertex.csv
 input/*
 output/*
 relaxmap/input/*

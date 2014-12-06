@@ -21,11 +21,12 @@ class GraphWrapper(object):
         unique = [x for x in list(self.g.vertices['community_id'].unique()) if x]
         if not unique:
             unique = ['1']
-        if self.g.vertices['community_id'].num_missing() > (self.g.vertices.num_rows() * .5):
-            distance = (self.g.vertices.num_rows() / self.AVG_COMM_SIZE) - len(unique)
-            if distance > 0:
-                offset = int(max(unique)) + 1
-                unique += [str(x+offset) for x in range(int(distance))]
+        target_num_comms = int(self.g.vertices.num_rows() / self.AVG_COMM_SIZE)
+        distance = target_num_comms - len(unique)
+        if distance > 0:
+            #assumes communities are intable
+            offset = int(max(unique)) + 1
+            unique += [str(x+offset) for x in range(int(distance))]
         self.g.vertices['community_id'] = self.g.vertices['community_id'].apply(lambda x: 
             random.choice(unique) if not x else x, skip_undefined=False)
 

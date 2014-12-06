@@ -1,8 +1,14 @@
 
 from graph_wrapper import GraphWrapper
 
-edge_path = 'test_data/edge.csv'
-vertex_path = 'test_data/vertex.csv'
+import inspect, os
+_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+
+
+vertex_path = _dir + '/vertex.csv'
+edge_path = _dir + '/edge.csv'
+
+#if path doesn't exist get it from static.smarttypes.com
 
 gw = GraphWrapper(GraphWrapper.load_vertices(vertex_path), 
     GraphWrapper.load_edges(edge_path))
