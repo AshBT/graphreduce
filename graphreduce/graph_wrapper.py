@@ -1,7 +1,7 @@
 
 import random
 import graphlab as gl
-import relaxmap
+from graphreduce import relaxmap
 
 class GraphWrapper(object):
 
@@ -124,7 +124,7 @@ class GraphWrapper(object):
 
     @classmethod
     def load_vertices(cls, vertex_csv, header=False):
-        sf = gl.SFrame.read_csv(vertex_csv, header=header)
+        sf = gl.SFrame.read_csv(vertex_csv, header=header, column_type_hints=str)
         assert sf.num_cols() in [2], "vertex_csv must be 2 columns"
         col_names = ['__id', 'community_id']
         rename = dict(zip(sf.column_names(), col_names))
@@ -134,7 +134,7 @@ class GraphWrapper(object):
 
     @classmethod
     def load_edges(cls, edge_csv, header=False):
-        sf = gl.SFrame.read_csv(edge_csv, header=header)
+        sf = gl.SFrame.read_csv(edge_csv, header=header, column_type_hints=str)
         assert sf.num_cols() in [2,3], "edge_csv must be 2 or 3 columns"
         if sf.num_cols() == 2:
             sa = gl.SArray([1] * sf.num_rows())

@@ -1,9 +1,9 @@
 *.sublime-workspace
 *.sublime-project
 *.pyc
-test/edge.csv
-test/vertex.csv
-input/*
-output/*
-relaxmap/input/*
-relaxmap/output/*
+graphreduce/test/edge.csv.gz
+graphreduce/test/vertex.csv.gz
+graphreduce/input/*
+graphreduce/output/*
+graphreduce/relaxmap/input/*
+graphreduce/relaxmap/output/*

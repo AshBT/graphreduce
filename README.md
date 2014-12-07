@@ -29,6 +29,25 @@ function used to quantify network pattern detection. [Relaxmap](http://uwescienc
 is a parallel implementation of the map equation objective. Dare we not mention the father 
 of information theory [Claude Shannon](http://en.wikipedia.org/wiki/Claude_Shannon).
 
+## Try it
+
+```
+$ git clone https://github.com/timmytw/graphreduce.git
+```
+
+```
+#if you have virtualenv & virtualenvwrapper
+$ mkvirtualenv graphreduce
+```
+
+```
+$ cd graphreduce/; pip install -r requirements.txt
+```
+
+```
+$ python graphreduce/test/test.py
+```
+
 ## See it in action
 
 Graphreduce is a key part of [SmartTypes.org](http://www.smarttypes.org/), 
