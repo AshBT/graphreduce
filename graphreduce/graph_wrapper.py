@@ -56,8 +56,6 @@ class GraphWrapper(object):
         return grouped_edges
 
     def get_community_gw(self):
-        if self.child:
-            raise Exception('Graphreduce only supports one level hierarchies at this time.')
         self.homes_for_the_homeless()
         gw = GraphWrapper(self.get_community_vertices(), self.get_community_edges(), child=self)
         self.parent = gw
@@ -87,10 +85,6 @@ class GraphWrapper(object):
         self.g = gl.SGraph(vertices=vertices, edges=self.g.get_edges(), 
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
         self.homes_for_the_homeless()
-        
-        if self.parent: 
-            self.parent.g = gl.SGraph(edges=self.get_community_edges(), 
-                src_field='__src_id', dst_field='__dst_id')
 
         #pull sgraph partitions out of child
         if self.child:
@@ -113,13 +107,26 @@ class GraphWrapper(object):
                 partitions.append(gl.SGraph(vertices=p_vertices, edges=p_edges, 
                     vid_field='__id', src_field='__src_id', dst_field='__dst_id'))
             return self.child.find_communities(partitions=partitions)
+        
+        #bottom of the chain
+        else:
+            #push info up the chain
+            ancestor = self.parent
+            while ancestor:
+                ancestor.g = gl.SGraph(ancestor.child.get_community_vertices(), 
+                    ancestor.child.get_community_edges(), vid_field='__id', src_field='__src_id', 
+                    dst_field='__dst_id')
+                ancestor = ancestor.parent
+
         return mdl
 
     def save(self, community_file_path, community_edge_file_path):
-        if self.child:
-            self = self.child
-        self.g.vertices.save(community_file_path, format='csv')
-        _g = gl.SGraph(edges=self.get_community_edges())
+        #todo: save all but initial edges
+        child = self.child
+        while child.child:
+            child = child.child
+        child.g.vertices.save(community_file_path, format='csv')
+        _g = gl.SGraph(edges=child.get_community_edges())
         _g.edges.save(community_edge_file_path, format='csv')
 
     @classmethod

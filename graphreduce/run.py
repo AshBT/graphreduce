@@ -17,13 +17,16 @@ class ProcessWrapper(object):
     def run(self):
         gw = GraphWrapper(GraphWrapper.load_vertices(self.vertex_path), 
             GraphWrapper.load_edges(self.edge_path))
-        hierarchy_levels = 2
+        hierarchy_levels = 3
         for i in range(hierarchy_levels - 1):
             gw = gw.get_community_gw()
         mdl1 = gw.find_communities()
         mdl2 = gw.find_communities()
         mdl3 = gw.find_communities()
         gw.save(output_dir+'community.csv', output_dir+'community_net.csv')
+        print mdl1, mdl2, mdl3
+        assert mdl1 > mdl2
+        assert mdl2 > mdl3
 
 if __name__ == "__main__":
 
