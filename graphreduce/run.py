@@ -17,7 +17,7 @@ class ProcessWrapper(object):
     def run(self):
         gw = GraphWrapper(GraphWrapper.load_vertices(self.vertex_path), 
             GraphWrapper.load_edges(self.edge_path))
-        hierarchy_levels = 3
+        hierarchy_levels = 2
         for i in range(hierarchy_levels - 1):
             gw = gw.get_community_gw()
         mdl1 = gw.find_communities()

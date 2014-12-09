@@ -56,6 +56,8 @@ class GraphWrapper(object):
         return grouped_edges
 
     def get_community_gw(self):
+        if self.child:
+            raise Exception('Graphreduce only supports one level hierarchies at this time.')
         self.homes_for_the_homeless()
         gw = GraphWrapper(self.get_community_vertices(), self.get_community_edges(), child=self)
         self.parent = gw
@@ -116,6 +118,7 @@ class GraphWrapper(object):
                 ancestor.g = gl.SGraph(ancestor.child.get_community_vertices(), 
                     ancestor.child.get_community_edges(), vid_field='__id', src_field='__src_id', 
                     dst_field='__dst_id')
+                #todo: if ancestor.parent, randomly partition and run community detection
                 ancestor = ancestor.parent
 
         return mdl
