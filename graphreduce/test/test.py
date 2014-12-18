@@ -9,22 +9,21 @@ if not os.path.exists(vertex_path):
     vertex_path = 'http://static.smarttypes.org/static/graphreduce/test_data/vertex.csv.gz'
     edge_path = 'http://static.smarttypes.org/static/graphreduce/test_data/edge.csv.gz'
 
-class TestSomeThings(unittest.TestCase):
+def test_two_level_reduction():
+    gw = GraphWrapper(GraphWrapper.load_vertices(vertex_path), 
+        GraphWrapper.load_edges(edge_path))
 
-    def test_two_level_reduction(self):
-        gw = GraphWrapper(GraphWrapper.load_vertices(vertex_path), 
-            GraphWrapper.load_edges(edge_path))
+    hierarchy_levels = 2
+    for i in range(hierarchy_levels - 1):
+        gw = gw.get_community_gw()
 
-        hierarchy_levels = 2
-        for i in range(hierarchy_levels - 1):
-            gw = gw.get_community_gw()
-
-        mdl1 = gw.find_communities()
-        mdl2 = gw.find_communities()
-        mdl3 = gw.find_communities()
-        print mdl1, mdl2, mdl3
-        assert mdl1 > mdl2
-        assert mdl2 > mdl3
+    mdl1 = gw.find_communities()
+    mdl2 = gw.find_communities()
+    mdl3 = gw.find_communities()
+    print mdl1, mdl2, mdl3
+    assert mdl1 > mdl2
+    assert mdl2 > mdl3
+    return gw
 
 if __name__ == '__main__':
-    unittest.main()
+    gw = test_two_level_reduction()
