@@ -12,13 +12,19 @@ class GraphWrapper(object):
         self.g = gl.SGraph(vertices=vertices, edges=edges, 
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
 
-    AVG_COMM_SIZE = 25
+    AVG_COMM_SIZE = 400
 
     def homes_for_the_homeless(self):
         print 'homes_for_the_homeless'
         unique = [x for x in list(self.g.vertices['community_id'].unique()) if x]
         if not unique:
-            raise Exception('self.g.vertices need to have at least one preset community.')
+            unique = ['1']
+        target_num_comms = int(self.g.vertices.num_rows() / self.AVG_COMM_SIZE)
+        distance = target_num_comms - len(unique)
+        if distance > 0:
+            #assumes communities are 'int'able
+            offset = int(max(unique)) + 1
+            unique += [str(x+offset) for x in range(int(distance))]
         self.g.vertices['community_id'] = self.g.vertices['community_id'].apply(lambda x: 
             random.choice(unique) if not x else x, skip_undefined=False)
         print 'return homes_for_the_homeless'
@@ -118,7 +124,7 @@ class GraphWrapper(object):
             random.shuffle(grouped_vertices)
             for i, row in enumerate(grouped_vertices):
                 _community_ids.extend(row['__ids'])
-                if len(_community_ids) < (self.AVG_COMM_SIZE * 10) and (i + 1) < num_grouped_vertices:
+                if len(_community_ids) < 100 and (i + 1) < num_grouped_vertices:
                     continue
                 _vertices = gl.SFrame({'__id':_community_ids})
                 _community_ids = []
