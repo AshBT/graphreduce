@@ -2,9 +2,13 @@ import os, random, inspect
 from datetime import datetime
 import graphlab as gl
 
+"""
+./ompRelaxmap 1 input/20141219204618213.txt 4 1 0.001 0 10 output/ prior
+"""
+
 _dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
-def find_communities(sgraph):
+def find_communities(sgraph, threads=4):
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     timestamp = timestamp + str(random.randint(1,1000))
     input_f = _dir + '/input/%s.txt' % timestamp
@@ -21,12 +25,12 @@ def find_communities(sgraph):
 
     #run relaxmap
     command = "%(dir)s/ompRelaxmap %(seed)s %(network_data)s %(threads)s %(attempts)s "+\
-        "%(threshold)s %(vThresh)s %(maxIter)s %(outDir)s %(prior)s"
+        "%(threshold)s %(vThresh)s %(maxIter)s %(outDir)s %(prior)s >/dev/null 2>&1"
     params = {
         'dir':_dir,
         'seed':1,
         'network_data':input_f,
-        'threads':4,
+        'threads':threads,
         'attempts':1,
         'threshold':1e-3,
         'vThresh':0.0,
