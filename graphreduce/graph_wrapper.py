@@ -14,6 +14,11 @@ class GraphWrapper(object):
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
 
     AVG_COMM_SIZE = 400
+    AVG_EDGES_PER_VERTEX = 200
+    #todo: inspect available mem to set MAX_EDGES_IN_MEM
+    MAX_EDGES_IN_MEM = 1e7
+    PARTITION_LEN = MAX_EDGES_IN_MEM / (AVG_COMM_SIZE * AVG_EDGES_PER_VERTEX)
+    PARTITION_MODE = True
 
     def homes_for_the_homeless(self):
         unique = [x for x in list(self.g.vertices['community_id'].unique()) if x]
@@ -70,7 +75,7 @@ class GraphWrapper(object):
         self.parent = gw
         return gw
 
-    def find_communities(self, partitions=None):
+    def find_communities(self, partitions=None, just_once=False):
         if not partitions:
             partitions = [self.g]
 
@@ -92,6 +97,7 @@ class GraphWrapper(object):
             try:
                 _vertices, _mdl = relaxmap.find_communities(partition, 4)
             except Exception:
+                print '   + relaxmap error, rerunning w/ 1 thread'
                 _vertices, _mdl = relaxmap.find_communities(partition, 1)
             _n_communities = len(_vertices['community_id'].unique())
             print '   + found %s communities, mdl: %s\n' % (_n_communities, _mdl)
@@ -114,7 +120,13 @@ class GraphWrapper(object):
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
         self.homes_for_the_homeless()
 
-        #use discovered communities to pull sgraph partitions out of child
+        if just_once:
+            return mdl
+
+        if self.child and not self.PARTITION_MODE:
+            return self.child.find_communities()
+
+        #pull sgraph partitions out of child
         if self.child:
             partitions = []
             _community_ids = []
@@ -125,7 +137,7 @@ class GraphWrapper(object):
             random.shuffle(grouped_vertices)
             for i, row in enumerate(grouped_vertices):
                 _community_ids.extend(row['__ids'])
-                if len(_community_ids) < 100 and (i + 1) < num_grouped_vertices:
+                if len(_community_ids) < self.PARTITION_LEN and (i + 1) < num_grouped_vertices:
                     continue
                 _vertices = gl.SFrame({'__id':_community_ids})
                 _community_ids = []
@@ -165,14 +177,46 @@ class GraphWrapper(object):
                 ancestor = ancestor.parent
         return mdl
 
-    def save(self, community_file_path, community_edge_file_path):
-        #if supporting multilevel, save all but initial edges
-        child = self.child
-        while child.child:
-            child = child.child
-        child.g.vertices.save(community_file_path, format='csv')
-        _g = gl.SGraph(edges=child.get_community_edges())
-        _g.edges.save(community_edge_file_path, format='csv')
+    def label_communities(self, verticy_descriptions):
+        """
+        join descriptions w/ self.child.g.vertices
+        group by community_id
+        run tf-idf
+        save labels to self.g.vertices
+        figure out how to search this data structure
+        """
+        frame = self.child.g.vertices.join(verticy_descriptions, '__id')
+        frame = frame.groupby('community_id', {"description":gl.aggregate.CONCAT("description"),
+            "member_count":gl.aggregate.COUNT("__id")})
+        frame['description'] = frame['description'].apply(lambda x: ' '.join(x))
+        frame['description'] = gl.text_analytics.count_words(frame['description'])
+        frame['description'] = frame['description'].dict_trim_by_values(2)
+        frame['description'] = frame['description'].dict_trim_by_keys(gl.text_analytics.stopwords(), exclude=True)
+        frame['description'] = gl.text_analytics.tf_idf(frame['description'])
+        frame = frame.stack('description', new_column_name=['word', 'score'])
+        frame['score'] = frame['score'] / frame['member_count']
+        self.labeled_communities = frame
+
+    def save(self, output_dir):
+        self.child.g.vertices.save(output_dir+'base_vertices.csv', format='csv')
+        self.g.vertices.save(output_dir+'community_vertices.csv', format='csv')
+        self.g.edges.save(output_dir+'community_edges.csv', format='csv')
+        if hasattr(self, 'labeled_communities') and self.labeled_communities:
+            self.labeled_communities.save(output_dir+'labeled_communities.csv', format='csv')
+
+    def search_communities(self, search_terms):
+        min_score = self.labeled_communities['score'].min()
+        search_terms = [x.lower() for x in search_terms]
+        search = gl.SFrame({'word':search_terms})
+        search = self.labeled_communities.join(search, 'word')
+        search = search.groupby('community_id', {'score':gl.aggregate.CONCAT('word', 'score')})
+        search = self.g.vertices.join(search, {'__id':'community_id'})
+        def score(row):
+            scores = [row['score'].get(x, min_score) for x in search_terms]
+            return sum(scores) * row['pr']
+        search['score'] = search[['score', 'pr']].apply(score)
+        search = search.sort('score', ascending=False)
+        return search
 
     @classmethod
     def load_vertices(cls, vertex_csv, header=False):
@@ -199,12 +243,18 @@ class GraphWrapper(object):
         return sf
 
     @classmethod
-    def run(cls, vertex_path, edge_path, output_dir=None):
+    def reduce(cls, vertex_path, edge_path, output_dir=None):
         _start_time = datetime.now()
 
+        verticy_descriptions = None
         vertices = cls.load_vertices(vertex_path)
         if 'description' in vertices.column_names():
+            #keeping description around for detection hurts performance
+            verticy_descriptions = gl.SFrame()
+            verticy_descriptions.add_columns(vertices)
+            verticy_descriptions.remove_column('community_id')
             vertices.remove_column('description')
+
         edges = cls.load_edges(edge_path)
         gw = GraphWrapper(vertices, edges)
 
@@ -212,13 +262,25 @@ class GraphWrapper(object):
         for i in range(hierarchy_levels - 1):
             gw = gw.get_community_gw()
 
+        if gw.child.g.edges.num_rows() < cls.MAX_EDGES_IN_MEM:
+            cls.PARTITION_MODE = False
+            iterations = 1
+        else:
+            iterations = 3
+
         mdls = []
-        iterations = 3
         for i in range(iterations):
             mdls.append(gw.find_communities())
+        gw.find_communities(just_once=True)
+        pagerank = gl.pagerank.create(gw.g)['pagerank']
+        gw.g.vertices['pr'] = gw.g.vertices.join(pagerank, '__id')['pagerank']
+
+        labeled_communities = None
+        if verticy_descriptions:
+            gw.label_communities(verticy_descriptions)
 
         if output_dir:
-            gw.save(output_dir+'community.csv', output_dir+'community_net.csv')
+            gw.save(output_dir)
             
         print mdls
         print 'total runtime: %s' % (datetime.now() - _start_time)

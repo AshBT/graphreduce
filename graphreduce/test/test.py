@@ -9,9 +9,6 @@ if not os.path.exists(vertex_path):
     vertex_path = 'http://static.smarttypes.org/static/graphreduce/test_data/vertex.csv.gz'
     edge_path = 'http://static.smarttypes.org/static/graphreduce/test_data/edge.csv.gz'
 
-def test_two_level_reduction():
-    gw, mdls = GraphWrapper.run(vertex_path, edge_path)
-    return gw, mdls
-
 if __name__ == '__main__':
-    gw, mdls = test_two_level_reduction()
+    gw, mdls = GraphWrapper.reduce(vertex_path, edge_path)
+

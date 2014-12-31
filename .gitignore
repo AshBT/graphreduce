@@ -1,9 +1,11 @@
+graphreduce.egg-info/*
+*.pyc
 *.sublime-workspace
 *.sublime-project
-*.pyc
 graphreduce/test/edge.csv.gz
 graphreduce/test/vertex.csv.gz
 graphreduce/input/*
 graphreduce/output/*
 graphreduce/relaxmap/input/*
 graphreduce/relaxmap/output/*
+notebooks/.ipynb_checkpoints/*
