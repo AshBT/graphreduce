@@ -7,7 +7,6 @@ from datetime import datetime
 class GraphWrapper(object):
 
     def __init__(self, vertices, edges, child=None):
-        #todo: make vertices optional
         self.parent = None
         self.child = child
         self.g = gl.SGraph(vertices=vertices, edges=edges, 
@@ -113,9 +112,6 @@ class GraphWrapper(object):
                 #assert len(vertices['community_id'].unique()) - len(_vertices['community_id'].unique()) == _offset
 
         #update w/ community info
-        #vertices = self.g.vertices.join(vertices, '__id', how='left')
-        #vertices.remove_column('community_id')
-        #vertices.rename({'community_id.1':'community_id'})
         self.g = gl.SGraph(vertices=vertices, edges=self.g.get_edges(), 
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
         self.homes_for_the_homeless()
@@ -178,50 +174,60 @@ class GraphWrapper(object):
         return mdl
 
     def label_communities(self, verticy_descriptions):
-        """
-        join descriptions w/ self.child.g.vertices
-        group by community_id
-        run tf-idf
-        save labels to self.g.vertices
-        figure out how to search this data structure
-        """
-        frame = self.child.g.vertices.join(verticy_descriptions, '__id')
-        frame = frame.groupby('community_id', {"description":gl.aggregate.CONCAT("description"),
+        frame = self.child.g.vertices.join(verticy_descriptions, '__id', how='left')
+        frame = frame.groupby('community_id', {
+            "labels":gl.aggregate.CONCAT("description"),
             "member_count":gl.aggregate.COUNT("__id")})
-        frame['description'] = frame['description'].apply(lambda x: ' '.join(x))
-        frame['description'] = gl.text_analytics.count_words(frame['description'])
-        frame['description'] = frame['description'].dict_trim_by_values(2)
-        frame['description'] = frame['description'].dict_trim_by_keys(gl.text_analytics.stopwords(), exclude=True)
-        frame['description'] = gl.text_analytics.tf_idf(frame['description'])
-        frame = frame.stack('description', new_column_name=['word', 'score'])
-        frame['score'] = frame['score'] / frame['member_count']
-        self.labeled_communities = frame
+        def remove_dups(_str):
+            words = _str.split()
+            return " ".join(sorted(set(words), key=words.index))
+        frame['labels'] = frame['labels'].apply(
+            lambda descriptions: ' '.join([remove_dups(x) for x in descriptions]))
+        frame['labels'] = gl.text_analytics.count_words(frame['labels'])
+        frame['labels'] = frame['labels'].dict_trim_by_values(3)
+        stopwords = gl.text_analytics.stopwords()
+        stopwords.update(['http', 'https'])
+        frame['labels'] = frame['labels'].dict_trim_by_keys(stopwords, exclude=True)
+        frame['labels'] = gl.text_analytics.tf_idf(frame['labels'])
+        def label_score(row):
+            new_scores = {}
+            for label,value in row['labels'].items():
+                new_scores[label] = value / row['member_count']
+            return new_scores
+        frame['labels'] = frame.apply(label_score)
+        frame = self.g.vertices.join(frame, {'__id':'community_id'})
+        self.g = gl.SGraph(vertices=frame, edges=self.g.get_edges(), 
+            vid_field='__id', src_field='__src_id', dst_field='__dst_id')
+
+    def search(self, search_terms):
+        search_terms = [x.strip().lower() for x in search_terms]
+        def _search(row):
+            score = 0
+            for search_term in search_terms:
+                score += row['labels'].get(search_term, 0)
+            if score:
+                return {row['__id']:score * row['pr']}
+            else:
+                return None
+        results = self.g.vertices.apply(_search, dtype=dict).dropna()
+        if not results:
+            return []
+        results = gl.SFrame({'result':results}).stack('result', ['community_id', 'score'])
+        results = self.g.vertices.join(results, {'__id':'community_id'})
+        results = results.sort('score', ascending=False)
+        return results
 
     def save(self, output_dir):
-        self.child.g.vertices.save(output_dir+'base_vertices.csv', format='csv')
+        base_vertices = self.child.g.vertices.get_vertices()
+        base_vertices.remove_column('description')
+        base_vertices.save(output_dir+'base_vertices.csv', format='csv')
         self.g.vertices.save(output_dir+'community_vertices.csv', format='csv')
         self.g.edges.save(output_dir+'community_edges.csv', format='csv')
-        if hasattr(self, 'labeled_communities') and self.labeled_communities:
-            self.labeled_communities.save(output_dir+'labeled_communities.csv', format='csv')
-
-    def search_communities(self, search_terms):
-        min_score = self.labeled_communities['score'].min()
-        search_terms = [x.lower() for x in search_terms]
-        search = gl.SFrame({'word':search_terms})
-        search = self.labeled_communities.join(search, 'word')
-        search = search.groupby('community_id', {'score':gl.aggregate.CONCAT('word', 'score')})
-        search = self.g.vertices.join(search, {'__id':'community_id'})
-        def score(row):
-            scores = [row['score'].get(x, min_score) for x in search_terms]
-            return sum(scores) * row['pr']
-        search['score'] = search[['score', 'pr']].apply(score)
-        search = search.sort('score', ascending=False)
-        return search
 
     @classmethod
     def load_vertices(cls, vertex_csv, header=False):
         sf = gl.SFrame.read_csv(vertex_csv, header=header, column_type_hints=str)
-        assert sf.num_cols() in [2, 3], "vertex_csv must be 2 columns"
+        assert sf.num_cols() in [2, 3]
         col_names = ['__id', 'community_id']
         if sf.num_cols() == 3:
             col_names.append('description')
@@ -249,9 +255,8 @@ class GraphWrapper(object):
         verticy_descriptions = None
         vertices = cls.load_vertices(vertex_path)
         if 'description' in vertices.column_names():
-            #keeping description around for detection hurts performance
-            verticy_descriptions = gl.SFrame()
-            verticy_descriptions.add_columns(vertices)
+            #keeping description around during detection hurts performance
+            verticy_descriptions = gl.SFrame(vertices)
             verticy_descriptions.remove_column('community_id')
             vertices.remove_column('description')
 
@@ -273,9 +278,8 @@ class GraphWrapper(object):
             mdls.append(gw.find_communities())
         gw.find_communities(just_once=True)
         pagerank = gl.pagerank.create(gw.g)['pagerank']
-        gw.g.vertices['pr'] = gw.g.vertices.join(pagerank, '__id')['pagerank']
+        gw.g.vertices['pr'] = pagerank['pagerank']
 
-        labeled_communities = None
         if verticy_descriptions:
             gw.label_communities(verticy_descriptions)
 
@@ -284,5 +288,5 @@ class GraphWrapper(object):
             
         print mdls
         print 'total runtime: %s' % (datetime.now() - _start_time)
-        return gw, mdls
+        return gw, mdls, verticy_descriptions
 
