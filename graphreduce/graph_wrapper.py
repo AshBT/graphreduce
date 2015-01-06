@@ -288,5 +288,5 @@ class GraphWrapper(object):
             
         print mdls
         print 'total runtime: %s' % (datetime.now() - _start_time)
-        return gw, mdls, verticy_descriptions
+        return gw, mdls
 
