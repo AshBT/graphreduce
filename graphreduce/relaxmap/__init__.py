@@ -12,7 +12,11 @@ def find_communities(sgraph, threads=4):
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     timestamp = timestamp + str(random.randint(1,1000))
     input_f = _dir + '/input/%s.txt' % timestamp
+    if not os.path.exists(os.path.dirname(input_f)):
+        os.makedirs(os.path.dirname(input_f))
     output_dir = _dir + '/output/'
+    if not os.path.exists(os.path.dirname(output_dir)):
+        os.makedirs(os.path.dirname(output_dir))
 
     #input file
     vertices = sgraph.get_vertices()

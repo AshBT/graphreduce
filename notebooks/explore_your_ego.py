@@ -30,11 +30,12 @@ gw, mdls, verticy_descriptions = GraphWrapper.reduce(v_path, e_path)
 """
 OK, what can we do w/ this? We're going to:
 
- - Identify communities 
- - Identify first degree accounts related to this communities
+ - Search communities
+ - Id best communities given a user
  - Zoom in on a community and show it's most popular members
  - Show similar and dissimilar communities
  - Show communities on the path from one community to another
+ - Best tweets for a community
 
 """
 
