@@ -6,17 +6,18 @@ import graphlab as gl
 ./ompRelaxmap 1 input/20141219204618213.txt 4 1 0.001 0 10 output/ prior
 """
 
-_dir = os.environ.get('GRAPHREDUCE_RELAXMAP_FILE_LOCATIONS')
-if not _dir:
-    _dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+_this_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+_cache_dir = os.environ.get('GRAPHREDUCE_RELAXMAP_FILE_LOCATIONS')
+if not _cache_dir:
+    _cache_dir = _this_dir
 
 def find_communities(sgraph, threads=4):
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     timestamp = timestamp + str(random.randint(1,1000))
-    input_f = _dir + '/input/%s.txt' % timestamp
+    input_f = _cache_dir + '/input/%s.txt' % timestamp
     if not os.path.exists(os.path.dirname(input_f)):
         os.makedirs(os.path.dirname(input_f))
-    output_dir = _dir + '/output/'
+    output_dir = _cache_dir + '/output/'
     if not os.path.exists(os.path.dirname(output_dir)):
         os.makedirs(os.path.dirname(output_dir))
 
@@ -30,10 +31,10 @@ def find_communities(sgraph, threads=4):
                 v_idx_map[row['__dst_id']], row['weight']))
 
     #run relaxmap
-    command = "%(dir)s/ompRelaxmap %(seed)s %(network_data)s %(threads)s %(attempts)s "+\
+    command = "%(_this_dir)s/ompRelaxmap %(seed)s %(network_data)s %(threads)s %(attempts)s "+\
         "%(threshold)s %(vThresh)s %(maxIter)s %(outDir)s %(prior)s >/dev/null 2>&1"
     params = {
-        'dir':_dir,
+        '_this_dir':_this_dir,
         'seed':1,
         'network_data':input_f,
         'threads':threads,
