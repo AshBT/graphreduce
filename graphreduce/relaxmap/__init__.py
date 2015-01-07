@@ -6,7 +6,9 @@ import graphlab as gl
 ./ompRelaxmap 1 input/20141219204618213.txt 4 1 0.001 0 10 output/ prior
 """
 
-_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+_dir = os.environ.get('GRAPHREDUCE_RELAXMAP_FILE_LOCATIONS')
+if not _dir:
+    _dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 def find_communities(sgraph, threads=4):
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')

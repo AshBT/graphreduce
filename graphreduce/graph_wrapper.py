@@ -4,6 +4,8 @@ import graphlab as gl
 from graphreduce import relaxmap
 from datetime import datetime
 
+#print gl.get_runtime_config()['GRAPHLAB_CACHE_FILE_LOCATIONS']
+
 class GraphWrapper(object):
 
     def __init__(self, vertices, edges, child=None):
