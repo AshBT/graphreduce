@@ -49,10 +49,12 @@ class GraphWrapper(object):
         edges.rename({'community_id':'dst_community_id'})
         edges = edges.join(self.g.vertices, {'__src_id':'__id'})
         edges.rename({'community_id':'src_community_id'})
-        grouped_edges = edges.groupby(['src_community_id', 'dst_community_id'], {'sum':gl.aggregate.SUM('weight')})
+        grouped_edges = edges.groupby(['src_community_id', 'dst_community_id'], 
+            {'sum':gl.aggregate.SUM('weight')})
         grouped_edges.rename({'src_community_id':'__src_id', 'dst_community_id':'__dst_id'})
 
-        member_counts = self.g.vertices.groupby('community_id', {'member_count':gl.aggregate.COUNT('__id')})
+        member_counts = self.g.vertices.groupby('community_id', 
+            {'member_count':gl.aggregate.COUNT('__id')})
         grouped_edges = grouped_edges.join(member_counts, {'__dst_id':'community_id'})
         grouped_edges['weight'] = grouped_edges['sum'] / grouped_edges['member_count']
 
@@ -67,6 +69,58 @@ class GraphWrapper(object):
         grouped_edges.remove_column('max')
         grouped_edges.remove_column('member_count')
         return grouped_edges
+
+    def user_community_links(self):
+        edges = self.g.edges.join(self.g.vertices, {'__dst_id':'__id'})
+        edges.rename({'community_id':'dst_community_id'})
+        grouped_edges = edges.groupby(['__src_id', 'dst_community_id'], 
+            {'sum':gl.aggregate.SUM('weight')})
+
+        member_counts = self.g.vertices.groupby('community_id', 
+            {'member_count':gl.aggregate.COUNT('__id')})
+        grouped_edges = grouped_edges.join(member_counts, {'dst_community_id':'community_id'})
+        grouped_edges['weight'] = grouped_edges['sum'] / grouped_edges['member_count']
+
+        grouped_edges_max = grouped_edges.groupby('__src_id', {'max':gl.aggregate.MAX('weight')})
+        grouped_edges = grouped_edges.join(grouped_edges_max, '__src_id')
+        grouped_edges['weight'] = grouped_edges['weight'] / grouped_edges['max']
+
+        grouped_edges.remove_column('sum')
+        grouped_edges.remove_column('max')
+        grouped_edges.remove_column('member_count')
+        return grouped_edges
+
+    def community_user_links(self):
+        edges = self.g.edges.join(self.g.vertices, {'__src_id':'__id'})
+        edges.rename({'community_id':'src_community_id'})
+        grouped_edges = edges.groupby(['__dst_id', 'src_community_id'], 
+            {'sum':gl.aggregate.SUM('weight')})
+
+        member_counts = self.g.vertices.groupby('community_id', 
+            {'member_count':gl.aggregate.COUNT('__id')})
+        grouped_edges = grouped_edges.join(member_counts, {'src_community_id':'community_id'})
+        grouped_edges['weight'] = grouped_edges['sum'] / grouped_edges['member_count']
+
+        grouped_edges_max = grouped_edges.groupby('__dst_id', {'max':gl.aggregate.MAX('weight')})
+        grouped_edges = grouped_edges.join(grouped_edges_max, '__dst_id')
+        grouped_edges['weight'] = grouped_edges['weight'] / grouped_edges['max']
+
+        grouped_edges.remove_column('sum')
+        grouped_edges.remove_column('max')
+        grouped_edges.remove_column('member_count')
+        return grouped_edges
+
+    def user_community_scores(self):
+        user_community_links = self.user_community_links()
+        community_user_links = self.community_user_links()
+        scores = user_community_links.join(community_user_links, 
+            {'__src_id':'__dst_id', 'dst_community_id':'src_community_id'})
+        scores['score'] = scores['weight'] * scores['weight.1']
+        scores.remove_columns(['weight', 'weight.1'])
+        scores.rename({'__src_id':'__id', 'dst_community_id':'community_id'})
+        scores = scores.groupby('__id', {'score':gl.aggregate.CONCAT('community_id', 'score')})
+        scores = scores.unpack('score')
+        return scores
 
     def get_community_gw(self):
         if self.child:
