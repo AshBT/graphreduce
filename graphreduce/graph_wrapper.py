@@ -8,11 +8,12 @@ from datetime import datetime
 
 class GraphWrapper(object):
 
-    def __init__(self, vertices, edges, child=None):
+    def __init__(self, vertices=None, edges=None, child=None):
         self.parent = None
         self.child = child
-        self.g = gl.SGraph(vertices=vertices, edges=edges, 
-            vid_field='__id', src_field='__src_id', dst_field='__dst_id')
+        if vertices and edges:
+            self.g = gl.SGraph(vertices=vertices, edges=edges, 
+                vid_field='__id', src_field='__src_id', dst_field='__dst_id')
 
     AVG_COMM_SIZE = 400
     AVG_EDGES_PER_VERTEX = 200
@@ -31,7 +32,7 @@ class GraphWrapper(object):
             #assumes communities are 'int'able
             offset = int(max(unique)) + 1
             unique += [str(x+offset) for x in range(int(distance))]
-        print ' - Num homeless: %s' % self.g.vertices['community_id'].num_missing()
+        #print ' - Num homeless: %s' % self.g.vertices['community_id'].num_missing()
         self.g.vertices['community_id'] = self.g.vertices['community_id'].apply(lambda x: 
             random.choice(unique) if not x else x, skip_undefined=False)
 
@@ -70,6 +71,12 @@ class GraphWrapper(object):
         grouped_edges.remove_column('member_count')
         return grouped_edges
 
+    def community_community_scores(self, distance_function):
+        scores = self.g.edges.join(self.g.edges, {'__src_id':'__dst_id', '__dst_id':'__src_id'})
+        scores.rename({'weight':'out_interest', 'weight.1':'in_interest'})
+        scores['score'] = distance_function(scores)
+        return scores
+
     def user_community_links(self):
         edges = self.g.edges.join(self.g.vertices, {'__dst_id':'__id'})
         edges.rename({'community_id':'dst_community_id'})
@@ -87,7 +94,6 @@ class GraphWrapper(object):
 
         grouped_edges.remove_column('sum')
         grouped_edges.remove_column('max')
-        grouped_edges.remove_column('member_count')
         return grouped_edges
 
     def community_user_links(self):
@@ -95,31 +101,31 @@ class GraphWrapper(object):
         edges.rename({'community_id':'src_community_id'})
         grouped_edges = edges.groupby(['__dst_id', 'src_community_id'], 
             {'sum':gl.aggregate.SUM('weight')})
+        grouped_edges['weight'] = grouped_edges['sum']
 
-        member_counts = self.g.vertices.groupby('community_id', 
-            {'member_count':gl.aggregate.COUNT('__id')})
-        grouped_edges = grouped_edges.join(member_counts, {'src_community_id':'community_id'})
-        grouped_edges['weight'] = grouped_edges['sum'] / grouped_edges['member_count']
-
-        grouped_edges_max = grouped_edges.groupby('__dst_id', {'max':gl.aggregate.MAX('weight')})
-        grouped_edges = grouped_edges.join(grouped_edges_max, '__dst_id')
+        grouped_edges_max = grouped_edges.groupby('src_community_id', 
+            {'max':gl.aggregate.MAX('weight')})
+        grouped_edges = grouped_edges.join(grouped_edges_max, 'src_community_id')
         grouped_edges['weight'] = grouped_edges['weight'] / grouped_edges['max']
 
         grouped_edges.remove_column('sum')
         grouped_edges.remove_column('max')
-        grouped_edges.remove_column('member_count')
         return grouped_edges
 
-    def user_community_scores(self):
-        user_community_links = self.user_community_links()
-        community_user_links = self.community_user_links()
-        scores = user_community_links.join(community_user_links, 
+    _user_community_links = None
+    _community_user_links = None
+    def user_community_scores(self, distance_function):
+        if not self._user_community_links:
+            self._user_community_links = self.user_community_links()
+        if not self._community_user_links:
+            self._community_user_links = self.community_user_links()
+        scores = self._user_community_links.join(self._community_user_links, 
             {'__src_id':'__dst_id', 'dst_community_id':'src_community_id'})
-        scores['score'] = scores['weight'] * scores['weight.1']
-        scores.remove_columns(['weight', 'weight.1'])
+        scores.rename({'weight':'user_interest', 'weight.1':'community_interest'})
         scores.rename({'__src_id':'__id', 'dst_community_id':'community_id'})
-        scores = scores.groupby('__id', {'score':gl.aggregate.CONCAT('community_id', 'score')})
-        scores = scores.unpack('score')
+        scores['score'] = distance_function(scores)
+        #scores = scores.groupby('__id', {'score':gl.aggregate.CONCAT('community_id', 'score')})
+        #scores = scores.unpack('score')
         return scores
 
     def get_community_gw(self):
@@ -155,7 +161,7 @@ class GraphWrapper(object):
                 print '   + relaxmap error, rerunning w/ 1 thread'
                 _vertices, _mdl = relaxmap.find_communities(partition, 1)
             _n_communities = len(_vertices['community_id'].unique())
-            print '   + found %s communities, mdl: %s\n' % (_n_communities, _mdl)
+            print '   + found %s communities, mdl: %s' % (_n_communities, _mdl)
 
             mdl += _mdl
             if not vertices:
@@ -229,11 +235,13 @@ class GraphWrapper(object):
                 ancestor = ancestor.parent
         return mdl
 
-    def label_communities(self, verticy_descriptions):
-        frame = self.child.g.vertices.join(verticy_descriptions, '__id', how='left')
+    def label_communities(self):
+        frame = self.child.g.vertices.join(self.verticy_descriptions, 
+            '__id', how='left')
         frame = frame.groupby('community_id', {
             "labels":gl.aggregate.CONCAT("description"),
             "member_count":gl.aggregate.COUNT("__id")})
+
         def remove_dups(_str):
             words = _str.split()
             return " ".join(sorted(set(words), key=words.index))
@@ -245,12 +253,18 @@ class GraphWrapper(object):
         stopwords.update(['http', 'https'])
         frame['labels'] = frame['labels'].dict_trim_by_keys(stopwords, exclude=True)
         frame['labels'] = gl.text_analytics.tf_idf(frame['labels'])
+
         def label_score(row):
             new_scores = {}
             for label,value in row['labels'].items():
                 new_scores[label] = value / row['member_count']
             return new_scores
         frame['labels'] = frame.apply(label_score)
+        def top_labels(labels_dict):
+            labels = sorted(labels_dict.items(), key=lambda x: x[1], reverse=True)[:5]
+            return [x[0] for x in labels]
+        frame['top_labels'] = frame['labels'].apply(top_labels)
+        
         frame = self.g.vertices.join(frame, {'__id':'community_id'})
         self.g = gl.SGraph(vertices=frame, edges=self.g.get_edges(), 
             vid_field='__id', src_field='__src_id', dst_field='__dst_id')
@@ -274,19 +288,31 @@ class GraphWrapper(object):
         return results
 
     def save(self, output_dir):
-        base_vertices = self.child.g.vertices.get_vertices()
-        base_vertices.remove_column('description')
-        base_vertices.save(output_dir+'base_vertices.csv', format='csv')
-        self.g.vertices.save(output_dir+'community_vertices.csv', format='csv')
-        self.g.edges.save(output_dir+'community_edges.csv', format='csv')
+        self.child.g.save(output_dir+'child')
+        self.g.save(output_dir+'parent')
+        self.verticy_descriptions.save(output_dir+'verticy_descriptions')
+
+    @classmethod
+    def from_previous(cls, input_dir):
+        parent = gl.load_sgraph(input_dir+'parent')
+        verticy_descriptions = gl.load_sframe(input_dir+'verticy_descriptions')
+        child = gl.load_sgraph(input_dir+'child')
+        gw = cls()
+        gw.g = parent
+        gw.verticy_descriptions = verticy_descriptions
+        gw.child = cls()
+        gw.child.g = child
+        return gw
 
     @classmethod
     def load_vertices(cls, vertex_csv, header=False):
-        sf = gl.SFrame.read_csv(vertex_csv, header=header, column_type_hints=str)
-        assert sf.num_cols() in [2, 3]
+        sf = gl.SFrame.read_csv(vertex_csv, header=header, column_type_hints=str, verbose=False)
+        assert sf.num_cols() in [2, 5]
         col_names = ['__id', 'community_id']
-        if sf.num_cols() == 3:
+        if sf.num_cols() == 5:
             col_names.append('description')
+            col_names.append('screen_name')
+            col_names.append('profile_image_url')
         rename = dict(zip(sf.column_names(), col_names))
         sf.rename(rename)
         sf['community_id'] = sf['community_id'].apply(lambda x: None if x == '\\N' else x)
@@ -294,7 +320,7 @@ class GraphWrapper(object):
 
     @classmethod
     def load_edges(cls, edge_csv, header=False):
-        sf = gl.SFrame.read_csv(edge_csv, header=header, column_type_hints=str)
+        sf = gl.SFrame.read_csv(edge_csv, header=header, column_type_hints=str, verbose=False)
         assert sf.num_cols() in [2,3], "edge_csv must be 2 or 3 columns"
         if sf.num_cols() == 2:
             sa = gl.SArray([1] * sf.num_rows())
@@ -315,6 +341,8 @@ class GraphWrapper(object):
             verticy_descriptions = gl.SFrame(vertices)
             verticy_descriptions.remove_column('community_id')
             vertices.remove_column('description')
+            vertices.remove_column('screen_name')
+            vertices.remove_column('profile_image_url')
 
         edges = cls.load_edges(edge_path)
         gw = GraphWrapper(vertices, edges)
@@ -333,15 +361,17 @@ class GraphWrapper(object):
         for i in range(iterations):
             mdls.append(gw.find_communities())
         gw.find_communities(just_once=True)
-        pagerank = gl.pagerank.create(gw.g)['pagerank']
+        pagerank = gl.pagerank.create(gw.g, verbose=False)['pagerank']
         gw.g.vertices['pr'] = pagerank['pagerank']
 
         if verticy_descriptions:
-            gw.label_communities(verticy_descriptions)
+            gw.verticy_descriptions = verticy_descriptions
+            gw.label_communities()
 
         if output_dir:
             gw.save(output_dir)
-            
+        
+        print ''
         print mdls
         print 'total runtime: %s' % (datetime.now() - _start_time)
         return gw, mdls
