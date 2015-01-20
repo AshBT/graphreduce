@@ -2,13 +2,13 @@
 # Twitter Politics
 
 In this notebook we'll explore the twitter networks of both 
-sides of US political aisle [TheDemocrats](https://twitter.com/TheDemocrats) 
+sides of US political aisle: [TheDemocrats](https://twitter.com/TheDemocrats) 
 and the [GOP](https://twitter.com/GOP).
 
-We'll identify like minded political and social interest communities related 
-to both sides. We'll use these discovered communities as latent features 
-to measure social distance / similarity. Finally we'll look for twitter 
-accounts equally influential to both sides, so called swing accounts.
+We'll identify like minded political and social interest communities 
+related to the left and right. 
+Then we'll use these communities as latent features to measure social distance / similarity. 
+Finally, we'll look for accounts equidistant from both sides, so called swing accounts.
 
 This notebook depends on:
 
@@ -32,20 +32,19 @@ import graphlab as gl
 from graphreduce.graph_wrapper import GraphWrapper
 
 """
-We'll start by downloading the combined preassembled 2 degree ego network of 
+We'll start by downloading the combined preassembled 2 degree ego networks of 
 [TheDemocrats](https://twitter.com/TheDemocrats) and the 
-[GOP's](https://twitter.com/GOP) twitter accounts.
-Once we have the network of interest 
-we'll dig through it looking for compression patterns (communities).
+[GOP](https://twitter.com/GOP).
+Once we have the network we'll mine it for compression patterns (communities).
 This will be the 
-most time consuming part of our exercise, it takes roughly 3 mins 
-on my mechanical drive / 8gb ram / i7 laptop.
+most time consuming part of our exercise, it takes about 4 mins 
+on my magnetic drive / 8gb ram / i7 laptop.
 """
 
 this_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 cache_dir = this_dir+'/.twitter_politics/'
 if os.path.exists(cache_dir+'parent'):
-    gw = GraphWrapper.from_previous(cache_dir)
+    gw = GraphWrapper.from_previous_reduction(cache_dir)
 else:
     v_path = 'http://static.smarttypes.org/static/graphreduce/test_data/TheDemocrats_GOP.vertex.csv.gz'
     e_path = 'http://static.smarttypes.org/static/graphreduce/test_data/TheDemocrats_GOP.edge.csv.gz'
@@ -56,19 +55,74 @@ else:
 
 """
 OK, what did this do?
-As mentioned above it discovered compression patterns (pockets of link density)
-within our network, and identified relationships between these communities.
+It discovered like-minded political and social interest communities.
 Using account descriptions it tagged / labeled the communities,
-allowing use to get a quick idea of the collective interests.
+this will let use get a quick idea of the collective interests of a community.
 
 The topic of network based community detection is broad and deep.
 The method here, 
 [the map equation](http://arxiv.org/abs/0906.1405),
 uses information theory to quantify compression of a random walk.
-[Relaxmap](http://uwescience.github.io/RelaxMap/), the library we use, 
+[Relaxmap](http://uwescience.github.io/RelaxMap/), the library used here, 
 is a parallel implementation of the map equation objective.
 
-Let's take a look at some of the discovered communities.
+Let's take a look at some of the more popular communities, order by pagerank.
+"""
+
+min_members = 25
+communities = gw.g.get_vertices()
+communities = communities[communities['member_count'] >= min_members]
+communities['pr'] = communities['pr'] / communities['pr'].max()
+print 'Popular communities'
+for x in communities.sort('pr', ascending=False)[:10]:
+    print str(x['pr'])[:4], x['member_count'], x['top_labels']
+print ''
+
+"""
+Now let's look @ communities close to the respective parties.
+"""
+
+def interest_score(scores):
+    def _score(row):
+        return row['user_interest'] * math.log(row['community_interest'] + 1) \
+            * math.log(row['member_count'] + 1)
+    return scores.apply(_score)
+
+user_community_scores = gw.child.user_community_scores(interest_score, min_members)
+
+def users_top_communities(user_id, scores):
+    user_scores = scores[scores['user_id'] == user_id]
+    user_scores = user_scores.join(communities, {'community_id':'__id'})
+    user_scores.remove_column('community_id.1')
+    return user_scores.sort('score', ascending=False)
+
+n_features = 10
+
+print 'DNC communities'
+dem_id = '14377605'
+dem_communities = users_top_communities(dem_id, user_community_scores)
+for x in dem_communities[:n_features]:
+    print str(x['score'])[:4], x['member_count'], x['top_labels']
+print ''
+
+print 'RNC communities'
+rep_id = '11134252'
+rep_communities = users_top_communities(rep_id, user_community_scores)
+for x in rep_communities[:n_features]:
+    print str(x['score'])[:4], x['member_count'], x['top_labels']
+print ''
+
+"""
+This gives us some interesting insight into the social media strategies of the respective parties.
+The DNC is aligned primarily with colleges and volunteers, the news media to a less extent, and 
+finally a mix of supporting and swing states. 
+The RNC is aligned primarily with the news media, then the conservative 
+christian community, and some key swing states.
+
+We'll use the communities closest to each party as features to gauge 
+social distance / similarity.
+We'll look at each user's relationship w/ each community, considering social distance 
+as the euclidean distance between two users community interest.
 """
 
 execfile('scratch.py')
