@@ -81,19 +81,18 @@ class GraphWrapper(object):
         edges = self.g.edges.join(self.g.vertices, {'__dst_id':'__id'})
         edges.rename({'community_id':'dst_community_id'})
         grouped_edges = edges.groupby(['__src_id', 'dst_community_id'], 
-            {'sum':gl.aggregate.SUM('weight')})
-        grouped_edges = grouped_edges[grouped_edges['sum'] >= 2]
-
-        member_counts = self.g.vertices.groupby('community_id', 
-            {'member_count':gl.aggregate.COUNT('__id')})
-        grouped_edges = grouped_edges.join(member_counts, {'dst_community_id':'community_id'})
-        grouped_edges['weight'] = grouped_edges['sum'] / grouped_edges['member_count']
+            {'weight':gl.aggregate.SUM('weight')})
+        #grouped_edges = grouped_edges[grouped_edges['weight'] >= 2]
 
         grouped_edge_stats = grouped_edges.groupby('__src_id', 
             {'total_weight':gl.aggregate.SUM('weight')})
         grouped_edges = grouped_edges.join(grouped_edge_stats, '__src_id')
-
         grouped_edges['weight'] = grouped_edges['weight'] / grouped_edges['total_weight']
+
+        member_counts = self.g.vertices.groupby('community_id', 
+            {'member_count':gl.aggregate.COUNT('__id')})
+        grouped_edges = grouped_edges.join(member_counts, {'dst_community_id':'community_id'})
+        grouped_edges['weight'] = grouped_edges['weight'] / grouped_edges['member_count']
 
         return grouped_edges
 
@@ -101,15 +100,12 @@ class GraphWrapper(object):
         edges = self.g.edges.join(self.g.vertices, {'__src_id':'__id'})
         edges.rename({'community_id':'src_community_id'})
         grouped_edges = edges.groupby(['__dst_id', 'src_community_id'], 
-            {'sum':gl.aggregate.SUM('weight')})
-        grouped_edges = grouped_edges[grouped_edges['sum'] >= 2]
-        
-        grouped_edges['weight'] = grouped_edges['sum']
+            {'weight':gl.aggregate.SUM('weight')})
+        #grouped_edges = grouped_edges[grouped_edges['weight'] >= 2]
 
         grouped_edges_total = grouped_edges.groupby('src_community_id', 
             {'total_weight':gl.aggregate.SUM('weight')})
         grouped_edges = grouped_edges.join(grouped_edges_total, 'src_community_id')
-
         grouped_edges['weight'] = grouped_edges['weight'] / grouped_edges['total_weight']
 
         return grouped_edges
@@ -128,28 +124,18 @@ class GraphWrapper(object):
         scores.rename({'__src_id':'user_id', 'dst_community_id':'community_id'})
 
         scores = scores[scores['member_count'] >= min_members]
-
-        user_grouped_scores = scores.groupby('user_id', 
-            {'max_user_interest':gl.aggregate.MAX('user_interest')})
-        scores = scores.join(user_grouped_scores, 'user_id')
-        scores['user_interest'] = scores['user_interest'] / scores['max_user_interest']
-
-        comm_grouped_scores = scores.groupby('community_id', 
-            {'max_comm_interest':gl.aggregate.MAX('community_interest')})
-        scores = scores.join(comm_grouped_scores, 'community_id')
-        scores['community_interest'] = scores['community_interest'] / scores['max_comm_interest']
         
         scores['score'] = distance_function(scores)
 
-        # clip_upper = scores['score'].sketch_summary().quantile(.98)
-        # scores['score'] = scores['score'].clip_upper(clip_upper)
-
         grouped_scores = scores.groupby('community_id', 
             {'min_score':gl.aggregate.MIN('score')},
-            {'max_score':gl.aggregate.MAX('score')})
+            {'std_score':gl.aggregate.STD('score')})
         scores = scores.join(grouped_scores, 'community_id')
         scores['score'] = (scores['score'] - scores['min_score']) \
-            / (scores['max_score'] - scores['min_score'])
+            / (scores['std_score'])
+
+        clip_upper = scores['score'].sketch_summary().quantile(.98)
+        scores['score'] = scores['score'].clip_upper(clip_upper)
 
         return scores
 
