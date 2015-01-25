@@ -108,21 +108,22 @@ def users_top_communities(user_id, scores):
     user_scores.remove_column('community_id.1')
     return user_scores.sort('score', ascending=False)
 
-print 'DNC communities'
+print 'DNC communities:'
 dem_id = '14377605'
 dem_communities = users_top_communities(dem_id, user_community_scores)
 for x in dem_communities[:10]:
-    print str(x['score'])[:4], x['member_count'], x['top_labels']
+    print ' - ', str(x['score'])[:4], x['member_count'], x['top_labels']
 print ''
 
-print 'RNC communities'
+print 'RNC communities:'
 rep_id = '11134252'
 rep_communities = users_top_communities(rep_id, user_community_scores)
 for x in rep_communities[:10]:
-    print str(x['score'])[:4], x['member_count'], x['top_labels']
-print ''
+    print ' - ', str(x['score'])[:4], x['member_count'], x['top_labels']
 
 """
+## What can we glean from this?
+
 The 'score' here is the product of user_interest and community_interest.
 Twitter is a directed network, our objective function rewards relationships 
 where an account follows many people in a community and many people in the 
@@ -151,7 +152,7 @@ Influential members in these communities.
 
 """
 We'll use the communities closest to each party as features (landmarks) to gauge distance 
-between the DNC / RNC and all other accounts.
+between the DNC / RNC and all other accounts. Let's look at accounts similar to the respective parties.
 """
 
 def users_top_users(user_id, scores, feature_ids):
@@ -194,10 +195,11 @@ print 'Accounts similar to the RNC:'
 rep_users = users_top_users(rep_id, user_community_scores, feature_ids)
 for x in rep_users[:10]:
     print str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
-print ''
 
 """
-Now lets look for accounts of interest to the DNC and RNC.
+## Accounts of interest to both sides
+
+Now lets look for accounts of interest to both the DNC and RNC, so called swing accounts.
 """
 
 def users_in_between(distances):
@@ -206,23 +208,22 @@ def users_in_between(distances):
     for x in distances[1:]:
         _distances = _distances.append(x)
     distances = _distances
-    #assert distances['distance'].min() >= 0
     distances = distances.groupby('user_id', {'distances':gl.aggregate.CONCAT('distance')})
     def between(row):
         if len(row['distances']) != n_dimensions:
             return None
         x = gl.SArray(row['distances'])
-        if x.std() > .15:
-            return None
+        # if x.std() > .15:
+        #     return None
         return x.mean() + x.std()
     distances['distance'] = distances.apply(between)
     distances = distances.dropna().join(gw.verticy_descriptions, {'user_id':'__id'})
     return distances.sort('distance')
 
-print "Of interest to the DNC and RNC"
+print "Of interest to the DNC and RNC:"
 equidistant_users = users_in_between([dem_users, rep_users])
 for x in equidistant_users[:10]:
-    print x['screen_name'], '-', x['description'][:100]
+    print ' - ', x['screen_name'], '-', x['description'][:100]
     #print '\t', x['distance'], x['distances']
 
 # """
