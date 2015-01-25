@@ -15,7 +15,7 @@ dare I say non-fiction are representative, they're biased distortions
 of a beautifully complex reality. With this in mind, the internet marks a huge 
 leap in the availability of social (albeit distorted) information. 
 Your author remains curious and optimistic about what this distorted lens can teach us 
-about ourselves and the chaotic worlds we inhabit.
+about ourselves and the chaotic world we inhabit.
 
 This notebook depends on:
 
@@ -69,7 +69,7 @@ motivations tend to follow each other.
 The topic of network based community detection is broad and deep. It has 
 many applications outside social network analysis, the network abstraction is
 used to model many of the world's most complex problems.
-As you might imagine compression / pattern recognition has a fertile litter of applications.
+As you might imagine network compression / pattern recognition has a fertile litter of applications.
 The method here, 
 [the map equation](http://arxiv.org/abs/0906.1405),
 uses information theory to quantify compression of a random walk.
@@ -128,23 +128,15 @@ Twitter is a directed network, our objective function rewards relationships
 where an account follows many people in a community and many people in the 
 community follow the account, a reciprocal_interest function.
 
-What can we glean from this? I'm not really sure. 
-But there are a few things of personal interest.
-
-Notice the difference in the 
-score distribution. If we overlay one atop the other we'd see the DNC appears 
-to have more reciprocal interest from the communities they follow.
+What can we glean from this? I'm not really sure. But there are a few things worth 
+mentioning.
 
 The DNC is aligned heavily with volunteers, colleges, and the news media.
 And then, to a less extent, supportive and swing states.
 
-The RNC is aligned primarily with conservatives, the media (to a less degree than 
+The RNC is aligned primarily with conservatives, the media (less than 
 the DNC), and with congress accounts. 
-After this we see a mix of support and swing states.
-
-We have to be careful how far we take our speculations here, the best we can say 
-is that these measures are accurate as they relate to the twitter follow network 
-at the time the network snapshot was taken.
+After this a mix of support and swing states.
 
 Let's look @ communities of interest to both sides.
 """
@@ -152,8 +144,14 @@ Let's look @ communities of interest to both sides.
 #raise Exception('communities of interest to both sides')
 
 """
+Influential members in these communities.
+"""
+
+#raise Exception('Influential community members')
+
+"""
 We'll use the communities closest to each party as features (landmarks) to gauge distance 
-between the DNC / RNC and all other users.
+between the DNC / RNC and all other accounts.
 """
 
 def users_top_users(user_id, scores, feature_ids):
@@ -186,13 +184,13 @@ feature_ids = list(rep_communities['community_id'][:5])
 feature_ids += list(dem_communities['community_id'][:5])
 feature_ids = list(set(feature_ids))
 
-print 'DNC users'
+print 'Accounts similar to the DNC:'
 dem_users = users_top_users(dem_id, user_community_scores, feature_ids)
 for x in dem_users[:10]:
     print str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
 print ''
 
-print 'RNC users'
+print 'Accounts similar to the RNC:'
 rep_users = users_top_users(rep_id, user_community_scores, feature_ids)
 for x in rep_users[:10]:
     print str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
@@ -226,13 +224,6 @@ equidistant_users = users_in_between([dem_users, rep_users])
 for x in equidistant_users[:10]:
     print x['screen_name'], '-', x['description'][:100]
     #print '\t', x['distance'], x['distances']
-
-execfile('scratch.py')
-
-
-
-
-
 
 # """
 # Our community detection algo discovered a Bush family community.
