@@ -39,9 +39,9 @@ def find_communities(sgraph, threads=4):
         'network_data':input_f,
         'threads':threads,
         'attempts':1,
-        'threshold':1e-3,
+        'threshold':1e-4,
         'vThresh':0.0,
-        'maxIter':10,
+        'maxIter':15,
         'outDir':output_dir,
         'prior':'prior'
     }
