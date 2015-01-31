@@ -1,52 +1,59 @@
-"""
-# Using twitter to assess political strategy and position
 
-In this notebook we'll explore the twitter networks of both 
-sides of US political aisle: [TheDemocrats](https://twitter.com/TheDemocrats) 
-and the [GOP](https://twitter.com/GOP).
+# coding: utf-8
 
-We'll identify like minded political and social interest communities, and use these 
-communities as latent features (landmarks) to quantify relatedness.
+# # Using twitter to assess political strategy and position
+# 
+# In this notebook we'll explore the networks of both 
+# sides of US political aisle: [TheDemocrats](https://twitter.com/TheDemocrats) 
+# and the [GOP](https://twitter.com/GOP).
+# 
+# We'll identify like minded political and social interest communities, and use these 
+# communities to measure social space.
+# 
+# ### What can this data really tell us?
+# 
+# > The Quality which creates the world emerges as a relationship between man and his experience. He is a participant in the creation of all things. The measure of all things. -- Robert Pirsig
+# 
+# Our world is messy and complicated. Online social networks, and the internet in general, give us a peak into this chaotic, beautiful abyss.
+# 
+# Your author remains curious and optimistic about what this distorted lens can teach us 
+# about the world we inhabit.
+# 
+# This notebook depends on:
+# 
+#  - [GraphLab create](http://dato.com/products/create/index.html)
+#  - [The map equation](http://arxiv.org/abs/0906.1405)
+#  - [Relaxmap](http://uwescience.github.io/RelaxMap/)
+#  - [GraphReduce](https://github.com/timmytw/graphreduce)
+# 
+# This will get you everything you need:
+# 
+# ```
+#  $ git clone https://github.com/timmytw/graphreduce.git
+# 
+#  $ cd graphreduce/; pip install -r requirements.txt
+# ```
 
-What can this data really tell us? Our world is messy and 
-complicated. Online social networks like twitter and facebook are 
-representative of our world in the same way much of our fiction, media, and 
-dare I say non-fiction are representative, they're biased distortions
-of a beautifully complex reality. With this in mind, the internet marks a huge 
-leap in the availability of social (albeit distorted) information. 
-Your author remains curious and optimistic about what this distorted lens can teach us 
-about ourselves and the chaotic world we inhabit.
-
-This notebook depends on:
-
- - [GraphLab create](http://dato.com/products/create/index.html)
- - [The map equation](http://arxiv.org/abs/0906.1405)
- - [Relaxmap](http://uwescience.github.io/RelaxMap/)
- - [GraphReduce](https://github.com/timmytw/graphreduce)
-
-This gets you everything you need:
-
-```shell
-$ git clone https://github.com/timmytw/graphreduce.git
-
-$ cd graphreduce/; pip install -r requirements.txt
-```
-"""
+# In[34]:
 
 import os, math, inspect
+from IPython.core.display import HTML
 from operator import mul
 import graphlab as gl
 from graphreduce.graph_wrapper import GraphWrapper
 
-"""
-We'll start by downloading the combined preassembled 2 degree ego networks of 
-[TheDemocrats](https://twitter.com/TheDemocrats) and the 
-[GOP](https://twitter.com/GOP).
-Once we have the combined network we'll mine it for compression patterns (communities).
-This will be the 
-most time consuming part of our exercise, it takes roughly 4 mins 
-on my magnetic drive / 8gb ram / i7 laptop.
-"""
+
+# ## This will take about 6 mins
+# 
+# It's well worth the wait.
+# 
+# The following method will download the network, and mine it for compression patterns (communities)
+# 
+# This will be the most time consuming part of our exercise, it takes roughly 5.5 mins 
+# on my magnetic drive / 8gb ram / i7 laptop.
+# 
+
+# In[35]:
 
 this_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 cache_dir = this_dir+'/.twitter_politics/'
@@ -60,40 +67,37 @@ else:
         os.makedirs(cache_dir)
     gw.save(cache_dir)
 
-"""
-OK, what happened? We discovered compression patterns in our network, 
-pockets of dense vertex interlinking.
-In practice, as we'll see, twitter accounts with similar interests / 
-motivations tend to follow each other.
 
-The topic of network based community detection is broad and deep. It has 
-many applications outside social network analysis, the network abstraction is
-used to model many of the world's most complex problems.
-As you might imagine network compression / pattern recognition has a fertile litter of applications.
-The method here, 
-[the map equation](http://arxiv.org/abs/0906.1405),
-uses information theory to quantify compression of a random walk.
-[Relaxmap](http://uwescience.github.io/RelaxMap/), the library used here, 
-is a parallel implementation of the map equation objective.
+# ## Network community detection
+# 
+# The topic of community detection is broad and deep.
+# The method here, 
+# [the map equation](http://arxiv.org/abs/0906.1405),
+# uses information theory to quantify the compression of a random walk on our network.
+# [Relaxmap](http://uwescience.github.io/RelaxMap/) 
+# is a parallel implementation of the map equation objective.
+# 
+# The method also tags communities, giving us a quick idea of 
+# the collective interests of a community.
+# 
+# Let's take a look at the most popular communities, order by pagerank:
 
-Using account descriptions, the method also tagged / labeled the communities. 
-These tags allow use to search and get a quick idea of the collective interests 
-of a community. The tagging procedure uses [tf-idf](http://en.wikipedia.org/wiki/Tf-idf)
-Let's take a look at the most popular communities, order by pagerank.
-"""
+# In[36]:
 
 min_members = 25
 communities = gw.g.get_vertices()
 communities = communities[communities['member_count'] >= min_members]
 communities['pr'] = communities['pr'] / communities['pr'].max()
-print 'Popular communities'
+print '\nPopular communities:'
 for x in communities.sort('pr', ascending=False)[:10]:
-    print str(x['pr'])[:4], x['member_count'], x['top_labels']
-print ''
+    print ' - ', str(x['pr'])[:4], x['member_count'], x['top_labels']
 
-"""
-Let's look @ communities close to the respective parties.
-"""
+
+# ##Left and right communities
+# 
+# Let's look at communities close to the respective parties:
+
+# In[37]:
 
 def reciprocal_interest(scores):
     def _score(row):
@@ -108,7 +112,7 @@ def users_top_communities(user_id, scores):
     user_scores.remove_column('community_id.1')
     return user_scores.sort('score', ascending=False)
 
-print 'DNC communities:'
+print '\nDNC communities:'
 dem_id = '14377605'
 dem_communities = users_top_communities(dem_id, user_community_scores)
 for x in dem_communities[:10]:
@@ -121,39 +125,29 @@ rep_communities = users_top_communities(rep_id, user_community_scores)
 for x in rep_communities[:10]:
     print ' - ', str(x['score'])[:4], x['member_count'], x['top_labels']
 
-"""
-## What can we glean from this?
 
-The 'score' here is the product of user_interest and community_interest.
-Twitter is a directed network, our objective function rewards relationships 
-where an account follows many people in a community and many people in the 
-community follow the account, a reciprocal_interest function.
+# ## What can we glean from this?
+# 
+# The 'score' here is the product of user_interest and community_interest.
+# Twitter is a directed network, our objective function rewards relationships 
+# where an account follows many people in a community and many people in the 
+# community follow the account, a reciprocal_interest function.
+# 
+# What can we glean from this? I'm not really sure. But there are a few things worth 
+# mentioning.
+# 
+# The DNC is aligned heavily with volunteers, colleges, and the news media.
+# And then, to a less extent, supportive and swing states. I was surprised to see texas, 
+# [Can Democrats Turn Texas and Arizona Blue by 2016?](http://fivethirtyeight.blogs.nytimes.com/2013/03/01/can-democrats-turn-texas-and-arizona-blue-by-2016/)
+# 
+# The RNC is aligned primarily with conservatives, the media, and congressional representation, 
+# then a mix of it's own support and swing states.
+# 
+# We'll use the communities closest to each party as features (landmarks) 
+# to measure similarity.
+# Let's look at accounts inline with the respective parties:
 
-What can we glean from this? I'm not really sure. But there are a few things worth 
-mentioning.
-
-The DNC is aligned heavily with volunteers, colleges, and the news media.
-And then, to a less extent, supportive and swing states.
-
-The RNC is aligned primarily with conservatives, the media (less than 
-the DNC), and with congress accounts. 
-After this a mix of support and swing states.
-
-Let's look @ communities of interest to both sides.
-"""
-
-#raise Exception('communities of interest to both sides')
-
-"""
-Influential members in these communities.
-"""
-
-#raise Exception('Influential community members')
-
-"""
-We'll use the communities closest to each party as features (landmarks) to gauge distance 
-between the DNC / RNC and all other accounts. Let's look at accounts similar to the respective parties.
-"""
+# In[38]:
 
 def users_top_users(user_id, scores, feature_ids):
     assert scores['score'].min() >= 0
@@ -177,30 +171,31 @@ def users_top_users(user_id, scores, feature_ids):
         return total_distance
     scores['distance'] = scores.apply(distance)
     scores = scores.join(gw.verticy_descriptions, {'user_id':'__id'})
-    scores['distance'] = (scores['distance'] - scores['distance'].mean()) \
-        / (scores['distance'].std())
+    scores['distance'] = (scores['distance'] - scores['distance'].mean())         / (scores['distance'].std())
     return scores.sort('distance')
 
 feature_ids = list(rep_communities['community_id'][:5])
 feature_ids += list(dem_communities['community_id'][:5])
 feature_ids = list(set(feature_ids))
 
-print 'Accounts similar to the DNC:'
+print '\nAccounts similar to the DNC:'
 dem_users = users_top_users(dem_id, user_community_scores, feature_ids)
 for x in dem_users[:10]:
-    print str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
+    print ' - ', str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
 print ''
 
 print 'Accounts similar to the RNC:'
 rep_users = users_top_users(rep_id, user_community_scores, feature_ids)
 for x in rep_users[:10]:
-    print str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
+    print ' - ', str(x['distance'])[:4], x['screen_name'], '-', x['description'][:75]
+print ''
 
-"""
-## Accounts of interest to both sides
 
-Now lets look for accounts of interest to both the DNC and RNC, so called swing accounts.
-"""
+# ## Accounts of interest to both sides
+# 
+# Now lets look for accounts of interest to both the DNC and RNC, so called swing accounts:
+
+# In[39]:
 
 def users_in_between(distances):
     n_dimensions = len(distances)
@@ -213,57 +208,26 @@ def users_in_between(distances):
         if len(row['distances']) != n_dimensions:
             return None
         x = gl.SArray(row['distances'])
-        # if x.std() > .15:
-        #     return None
+        if x.std() > .15:
+            return None
         return x.mean() + x.std()
     distances['distance'] = distances.apply(between)
     distances = distances.dropna().join(gw.verticy_descriptions, {'user_id':'__id'})
     return distances.sort('distance')
 
-print "Of interest to the DNC and RNC:"
+print "\nOf interest to the DNC and RNC:\n"
 equidistant_users = users_in_between([dem_users, rep_users])
 for x in equidistant_users[:10]:
     print ' - ', x['screen_name'], '-', x['description'][:100]
-    #print '\t', x['distance'], x['distances']
-
-# """
-# Our community detection algo discovered a Bush family community.
-# Not surprisingly this is the one Jeb is closest to.
-# Let's look at some of the group's more influential members.
-# """
-# def users_between_communities(community_ids, scores):
-#     num_comms = len(community_ids)
-#     community_ids = gl.SFrame({'__id': community_ids})
-#     scores = scores.join(community_ids, {'community_id':'__id'})
-#     scores = scores.groupby('__id', {'score':gl.aggregate.CONCAT('score'), 
-#         'user_interest':gl.aggregate.CONCAT('user_interest'), 
-#         'community_interest':gl.aggregate.CONCAT('community_interest')})
-#     def _score(row):
-#         if len(row['score']) != num_comms:
-#             return None
-#         _diff = max(row['score']) - min(row['score'])
-#         return reduce(mul, row['score'], 1) / _diff
-#     scores['score'] = scores.apply(_score)
-#     scores = scores.dropna().join(gw.verticy_descriptions, '__id')
-#     return scores.sort('score', ascending=False)
-
-# dem_comm_ids = [x['__id'] for x in dem_communities[:1]]
-# rep_comm_ids = [x['__id'] for x in rep_communities[:1]]
-# comm_ids = dem_comm_ids + rep_comm_ids
-# for x in users_between_communities(comm_ids, user_community_scores)[:10]:
-#     print x['score'], x['screen_name'], x['description'] #x['user_interest'], x['community_interest']
-
-# #x['description'],
-
-# # def show_community_members(community_id):
-# #     comm_members = gw.child.g.vertices[gw.child.g.vertices['community_id'] == community_id]
-# #     comm_members = comm_members.join(gw.verticy_descriptions, '__id')
-# #     for x in comm_members:
-# #         print x['__id'], x['description']
-# # show_community_members(jeb_reciprocal_communities[0]['__id'])
 
 
+# ## Supervised learning
+# 
+# The focus of this notebook has been unsupervised learning, 
+# in a future notebook we'll look at using labeled data and network compression 
+# patterns to predict vertex actions, supervised learning.
 
+# In[ ]:
 
 
 
