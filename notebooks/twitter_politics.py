@@ -1,8 +1,8 @@
 
 # coding: utf-8
 
-# # Using twitter to assess political strategy and position
-# 
+## Using twitter to assess political strategy and position
+
 # In this notebook we'll explore the networks of both 
 # sides of US political aisle: [TheDemocrats](https://twitter.com/TheDemocrats) 
 # and the [GOP](https://twitter.com/GOP).
@@ -14,10 +14,10 @@
 # 
 # > The Quality which creates the world emerges as a relationship between man and his experience. He is a participant in the creation of all things. The measure of all things. -- Robert Pirsig
 # 
-# Our world is messy and complicated. Online social networks, and the internet in general, give us a peak into this chaotic, beautiful abyss.
+# Our socio political / economic world is messy and complicated. 
+# Online social networks give us a small peak into this chaotic abyss.
 # 
-# Your author remains curious and optimistic about what this distorted lens can teach us 
-# about the world we inhabit.
+# Your author remains curious and optimistic about what this distorted lens can teach us.
 # 
 # This notebook depends on:
 # 
@@ -43,17 +43,16 @@ import graphlab as gl
 from graphreduce.graph_wrapper import GraphWrapper
 
 
-# ## This will take about 6 mins
+# ## Downloading and compressing our network
 # 
-# It's well worth the wait.
-# 
-# The following method will download the network, and mine it for compression patterns (communities)
+# First we'll download the preassembled 2 degree ego networks of the DNC and RNC,
+# then we'll mine the 37K vertex / 9M edge network for compression patterns.
 # 
 # This will be the most time consuming part of our exercise, it takes roughly 5.5 mins 
 # on my magnetic drive / 8gb ram / i7 laptop.
 # 
 
-# In[35]:
+# In[40]:
 
 this_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 cache_dir = this_dir+'/.twitter_politics/'
@@ -225,9 +224,4 @@ for x in equidistant_users[:10]:
 # 
 # The focus of this notebook has been unsupervised learning, 
 # in a future notebook we'll look at using labeled data and network compression 
-# patterns to predict vertex actions, supervised learning.
-
-# In[ ]:
-
-
-
+# patterns to predict vertex actions.
